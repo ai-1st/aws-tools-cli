@@ -1,0 +1,8 @@
+{
+  "Credentials": {
+    "AccessKeyId": "YOUR_AWS_ACCESS_KEY_ID",
+    "SecretAccessKey": "YOUR_AWS_SECRET_ACCESS_KEY",
+    "SessionToken": "YOUR_SESSION_TOKEN_IF_USING_STS"
+  },
+  "region": "us-east-1"
+} 
