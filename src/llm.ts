@@ -1,10 +1,12 @@
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
-import { generateText, generateObject, jsonSchema } from 'ai';
+import { generateText, generateObject, jsonSchema, tool } from 'ai';
 import { config } from './config.js';
 import { LLMAnalysisRequest, ChartAnalysisResult, PlanningRequest, PlanningResponse, AnalysisStep } from './types.js';
 import fs from 'fs-extra';
 import * as path from 'path';
 import * as os from 'os';
+import { invoke } from '@ddegtyarev/aws-tools';
+import { z } from 'zod';
 
 export class LLMService {
   private model: any;
@@ -94,6 +96,143 @@ For each service-region combination, create an analysis step that uses the most 
    * Analyze with tools using AI SDK
    */
   async analyzeWithTools(step: AnalysisStep, tools: any[]): Promise<{ summary: string }> {
+    // Create AI SDK tool objects from the aws-tools
+    const toolObjects: any = {};
+    
+    for (const toolConfig of tools) {
+      const toolName = toolConfig.name;
+      
+      // Create tool object based on the tool name
+      switch (toolName) {
+        case 'awsGetCostAndUsage':
+          toolObjects[toolName] = tool({
+            description: 'Retrieve AWS cost and usage data for analysis. Always use this tool when cost information is needed.',
+            parameters: z.object({
+              granularity: z.string().optional().describe('The granularity of the cost data (DAILY, MONTHLY, etc.)'),
+              groupBy: z.array(z.string()).optional().describe('Array of dimensions to group by'),
+              lookBack: z.number().optional().describe('Number of months to look back'),
+              filter: z.object({
+                Dimensions: z.object({
+                  Key: z.string(),
+                  Values: z.array(z.string()),
+                  MatchOptions: z.array(z.string())
+                })
+              }).optional().describe('Filter criteria for the cost data')
+            }),
+            execute: async (params: any) => {
+              try {
+                const credentials = {
+                  accessKeyId: config.getCredentials().accessKeyId,
+                  secretAccessKey: config.getCredentials().secretAccessKey,
+                  ...(config.getCredentials().sessionToken && { sessionToken: config.getCredentials().sessionToken })
+                };
+                
+                const result = await invoke(toolName, params, {
+                  credentials,
+                  region: config.getCredentials().region || 'us-east-1'
+                });
+                return result;
+              } catch (error) {
+                return { error: error instanceof Error ? error.message : String(error) };
+              }
+            }
+          });
+          break;
+          
+        case 'awsCloudWatchGetMetrics':
+          toolObjects[toolName] = tool({
+            description: 'Retrieve CloudWatch metrics for any AWS service with flexible dimensions and time periods. Essential for analyzing performance trends, usage patterns, and operational metrics.',
+            parameters: z.object({
+              namespace: z.string().describe('The namespace of the metric'),
+              metricName: z.string().describe('The name of the metric'),
+              dimensions: z.array(z.object({
+                Name: z.string(),
+                Value: z.string()
+              })).optional().describe('Dimensions to filter the metric'),
+              period: z.number().optional().describe('The granularity of the metric data'),
+              startTime: z.string().optional().describe('Start time for the metric data'),
+              endTime: z.string().optional().describe('End time for the metric data')
+            }),
+            execute: async (params: any) => {
+              try {
+                const credentials = {
+                  accessKeyId: config.getCredentials().accessKeyId,
+                  secretAccessKey: config.getCredentials().secretAccessKey,
+                  ...(config.getCredentials().sessionToken && { sessionToken: config.getCredentials().sessionToken })
+                };
+                
+                const result = await invoke(toolName, params, {
+                  credentials,
+                  region: config.getCredentials().region || 'us-east-1'
+                });
+                return result;
+              } catch (error) {
+                return { error: error instanceof Error ? error.message : String(error) };
+              }
+            }
+          });
+          break;
+          
+        case 'awsCostOptimizationHubListRecommendations':
+          toolObjects[toolName] = tool({
+            description: 'Retrieve cost optimization recommendations from AWS Cost Optimization Hub. Fetches all available recommendations, sorts them by estimated monthly savings in decreasing order, and returns the top N recommendations with the highest potential savings.',
+            parameters: z.object({
+              maxResults: z.number().optional().describe('Maximum number of recommendations to return'),
+              filter: z.object({
+                regions: z.array(z.string()).optional(),
+                services: z.array(z.string()).optional(),
+                recommendationTypes: z.array(z.string()).optional()
+              }).optional().describe('Filter criteria for recommendations')
+            }),
+            execute: async (params: any) => {
+              try {
+                const credentials = {
+                  accessKeyId: config.getCredentials().accessKeyId,
+                  secretAccessKey: config.getCredentials().secretAccessKey,
+                  ...(config.getCredentials().sessionToken && { sessionToken: config.getCredentials().sessionToken })
+                };
+                
+                const result = await invoke(toolName, params, {
+                  credentials,
+                  region: config.getCredentials().region || 'us-east-1'
+                });
+                return result;
+              } catch (error) {
+                return { error: error instanceof Error ? error.message : String(error) };
+              }
+            }
+          });
+          break;
+          
+        default:
+          // Generic tool for other AWS tools
+          toolObjects[toolName] = tool({
+            description: `Execute ${toolName} for AWS service analysis`,
+            parameters: z.object({
+              region: z.string().describe('AWS region to analyze'),
+              service: z.string().describe('AWS service to analyze')
+            }),
+            execute: async (params: any) => {
+              try {
+                const credentials = {
+                  accessKeyId: config.getCredentials().accessKeyId,
+                  secretAccessKey: config.getCredentials().secretAccessKey,
+                  ...(config.getCredentials().sessionToken && { sessionToken: config.getCredentials().sessionToken })
+                };
+                
+                const result = await invoke(toolName, params, {
+                  credentials,
+                  region: config.getCredentials().region || 'us-east-1'
+                });
+                return result;
+              } catch (error) {
+                return { error: error instanceof Error ? error.message : String(error) };
+              }
+            }
+          });
+      }
+    }
+
     const prompt = `
 Analyze the AWS service costs for the following step:
 - Title: ${step.title}
@@ -108,13 +247,15 @@ Your response should include:
 2. Potential cost optimization recommendations
 3. Insights from the tool data gathered
 
-Your response should be comprehensive but concise, focusing on actionable insights.
+Use the available tools to gather real data and provide actionable insights based on the actual AWS data.
 `;
 
     try {
       const result = await generateText({
         model: this.model,
         prompt,
+        tools: toolObjects,
+        maxSteps: 5, // Allow multiple tool calls
         maxTokens: 2000,
         temperature: 0.3
       });
