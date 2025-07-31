@@ -111,36 +111,4 @@ export class AWSService {
       throw new Error(`Failed to parse cost data: ${errorMessage}`);
     }
   }
-
-  /**
-   * Get detailed cost data for a specific service-region combo
-   */
-  async getServiceRegionDetails(service: string, region: string): Promise<any> {
-    try {
-      console.log(`Fetching detailed data for ${service} in ${region}...`);
-    
-      
-      const detailedData = await invoke('awsGetCostAndUsage', {
-        granularity: 'MONTHLY',
-        groupBy: ['USAGE_TYPE', 'OPERATION'],
-        lookBack: 1,
-        filter: { 
-          Dimensions: {
-            Key: 'SERVICE',
-            Values: [service],
-            MatchOptions: ['EQUALS']
-          }
-        }
-      }, {
-        credentials: this.credentials,
-        region: this.credentials.region
-      });
-
-      return detailedData;
-    } catch (error) {
-      console.error(`Error fetching details for ${service} in ${region}:`, error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to fetch service details: ${errorMessage}`);
-    }
-  }
 } 

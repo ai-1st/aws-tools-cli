@@ -50,3 +50,5 @@ temp/
 # Cache
 .npm
 .eslintcache 
+
+output.txt

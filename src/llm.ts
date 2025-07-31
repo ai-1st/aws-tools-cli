@@ -1,11 +1,7 @@
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
-import { generateText, generateObject, jsonSchema, ToolSet } from 'ai';
-import { config } from './config.js';
-import { LLMAnalysisRequest, ChartAnalysisResult, PlanningRequest, PlanningResponse, AnalysisStep } from './types.js';
+import { generateText, generateObject, jsonSchema, ToolSet } from 'ai'; 
+import { ChartAnalysisResult, PlanningRequest, PlanningResponse, AnalysisStep } from './types.js';
 import fs from 'fs-extra';
-import * as path from 'path';
-import * as os from 'os';
-import { invoke, tools } from '@ddegtyarev/aws-tools';
 
 export class LLMService {
   private model: any;
@@ -133,7 +129,7 @@ Use the available tools to gather real data and provide actionable insights base
         temperature: 0.3,
         onStepFinish: ({ text, toolCalls, toolResults, finishReason, usage }) => {
           console.log(`📊 STEP FINISHED:`);
-          console.log(`  - Text: ${text ? text.substring(0, 200) + '...' : 'No text'}`);
+          console.log(`  - Text: ${text ? text : 'No text'}`);
           console.log(`  - Tool Calls: ${toolCalls?.length || 0}`);
           console.log(`  - Tool Results: ${toolResults?.length || 0}`);
           console.log(`  - Finish Reason: ${finishReason}`);
@@ -156,139 +152,5 @@ Use the available tools to gather real data and provide actionable insights base
     }
   }
 
-  /**
-   * Analyze a chart image for insights
-   */
-  async analyzeChart(imagePath: string, context: string): Promise<ChartAnalysisResult> {
-    try {
-      // Read the image file
-      const imageBuffer = await fs.readFile(imagePath);
-      const base64Image = imageBuffer.toString('base64');
 
-      const prompt = `
-Analyze this cost chart image and provide insights about the AWS service costs shown.
-
-Context: ${context}
-
-Please provide:
-1. A detailed analysis of what the chart shows
-2. Key insights about cost patterns, trends, or anomalies
-3. Specific recommendations for cost optimization
-
-Respond in JSON format with the following structure:
-{
-  "analysis": "detailed analysis of the chart",
-  "insights": ["insight 1", "insight 2", ...],
-  "recommendations": ["recommendation 1", "recommendation 2", ...]
-}
-`;
-
-      const result = await generateText({
-        model: this.model,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              {
-                type: 'image',
-                image: `data:image/png;base64,${base64Image}`
-              }
-            ]
-          }
-        ],
-        maxTokens: 2000,
-        temperature: 0.3
-      });
-
-      // Parse the JSON response
-      try {
-        const parsed = JSON.parse(result.text);
-        return {
-          analysis: parsed.analysis || result.text,
-          insights: parsed.insights || [],
-          recommendations: parsed.recommendations || []
-        } as ChartAnalysisResult;
-      } catch {
-        // If parsing fails, return the text as analysis
-        return {
-          analysis: result.text,
-          insights: [],
-          recommendations: []
-        };
-      }
-    } catch (error) {
-      console.error('Error analyzing chart:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to analyze chart: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Extract chart specification from LLM response
-   */
-  private extractChartSpec(text: string): any {
-    try {
-      // Look for JSON blocks that might contain Vega-Lite specifications
-      const jsonMatches = text.match(/```json\s*([\s\S]*?)\s*```/g);
-      
-      if (jsonMatches) {
-        for (const match of jsonMatches) {
-          const jsonText = match.replace(/```json\s*/, '').replace(/\s*```/, '');
-          try {
-            const parsed = JSON.parse(jsonText);
-            // Check if it looks like a Vega-Lite spec
-            if (parsed.$schema || parsed.mark || parsed.encoding) {
-              // Sanitize the chart specification
-              return this.sanitizeChartSpec(parsed);
-            }
-          } catch (e) {
-            // Continue to next match
-          }
-        }
-      }
-
-      return null;
-    } catch (error) {
-      console.warn('Failed to extract chart specification:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Sanitize chart specification to avoid formatting issues
-   */
-  private sanitizeChartSpec(spec: any): any {
-    const sanitized = JSON.parse(JSON.stringify(spec));
-    
-    // Remove problematic formatting
-    if (sanitized.encoding) {
-      Object.keys(sanitized.encoding).forEach(key => {
-        const encoding = sanitized.encoding[key];
-        if (encoding && encoding.axis) {
-          // Remove any problematic format strings
-          if (encoding.axis.format) {
-            delete encoding.axis.format;
-          }
-          if (encoding.axis.formatType) {
-            delete encoding.axis.formatType;
-          }
-          if (encoding.axis.tickFormat) {
-            delete encoding.axis.tickFormat;
-          }
-        }
-      });
-    }
-    
-    // Ensure basic required fields
-    if (!sanitized.mark) {
-      sanitized.mark = 'bar';
-    }
-    
-    if (!sanitized.encoding) {
-      sanitized.encoding = {};
-    }
-    
-    return sanitized;
-  }
 } 

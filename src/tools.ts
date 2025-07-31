@@ -2,6 +2,7 @@ import { jsonSchema, tool, ToolSet, generateText } from 'ai';
 import { invoke, tools as awsTools } from '@ddegtyarev/aws-tools';
 import fs from 'fs-extra';
 import * as path from 'path';
+import { ulid } from 'ulid';
 import { generatePNGChart } from './chartUtils.js';
 
 interface Credentials {
@@ -74,7 +75,7 @@ export function createTools(
 
           // Handle datapoints if present
           if (result.datapoints) {
-            const datapointsFilename = `${toolName}-${generateRandomString()}-data.json`;
+            const datapointsFilename = `${toolName}-${generateUniqueId()}-data.json`;
             const datapointsPath = path.join(outputPath, 'data', datapointsFilename);
             
             await fs.ensureDir(path.dirname(datapointsPath));
@@ -87,7 +88,7 @@ export function createTools(
           // Handle chart if present
           if (result.chart) {
             try {
-              const chartFilename = `${toolName}-${generateRandomString()}`;
+              const chartFilename = `${toolName}-${generateUniqueId()}`;
               const chartPath = path.join(outputPath, 'charts', 'png', `${chartFilename}.png`);
               
               await fs.ensureDir(path.dirname(chartPath));
@@ -97,13 +98,12 @@ export function createTools(
               await generatePNGChart(result.chart, chartFilename, path.join(outputPath, 'charts'));
               
               toolResult.chartPath = chartPath;
-              console.log(`📊 Chart saved to: ${chartPath}`);
 
               // Analyze the chart using the model
-              console.log(`🤖 Analyzing chart with model...`);
+              console.log(`🤖 Analyzing chart ${chartPath}`);
               const chartAnalysis = await analyzeChart(chartPath, model, toolName, result.summary);
               toolResult.chartAnalysis = chartAnalysis;
-              console.log(`✅ Chart analysis completed`);
+              console.log(`✅ Chart analysis completed: ${chartAnalysis}`);
 
             } catch (chartError) {
               console.error(`❌ Chart processing failed for ${toolName}:`, chartError);
@@ -111,6 +111,7 @@ export function createTools(
             }
           }
 
+          console.log(`🔍 Tool result: ${JSON.stringify(toolResult, null, 2)}`);
           return toolResult;
 
         } catch (error) {
@@ -150,7 +151,6 @@ Please provide a concise analysis focusing on:
 1. What the chart shows (data patterns, trends)
 2. Key insights about AWS costs or metrics
 3. Notable patterns or anomalies
-4. Actionable recommendations if applicable
 
 Keep the analysis concise but informative.
 `;
@@ -182,8 +182,8 @@ Keep the analysis concise but informative.
 }
 
 /**
- * Generate a random string for unique filenames
+ * Generate a ULID for unique filenames
  */
-function generateRandomString(): string {
-  return Math.random().toString(36).substring(2, 15);
+function generateUniqueId(): string {
+  return ulid();
 } 
