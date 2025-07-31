@@ -2,11 +2,13 @@ import * as path from 'path';
 import fs from 'fs-extra';
 import { AWSService } from './aws-service.js';
 import { LLMService } from './llm.js';
+import { config } from './config.js';
 import { AnalysisResult, ServiceRegionCombo, ReportConfig, AnalysisStep, PlanningRequest, PlanningResponse, ToolResult } from './types.js';
 import { generatePNGChart } from './chartUtils.js';
 import chalk from 'chalk';
 import ora from 'ora';
 import { tools } from '@ddegtyarev/aws-tools';
+import { createTools } from './tools.js';
 
 export class CostAnalyzer {
   private awsService: AWSService;
@@ -140,22 +142,31 @@ export class CostAnalyzer {
     // Validate that all requested tools exist
     this.validateTools(step.useTools);
     
-    // Step 4.1: Configure Tools
-    const configuredTools = await this.configureTools(step);
+    // Create AI SDK compatible tools using the new tools system
+    const credentials = {
+      accessKeyId: config.getCredentials().accessKeyId,
+      secretAccessKey: config.getCredentials().secretAccessKey,
+      sessionToken: config.getCredentials().sessionToken
+    };
     
-    // Step 4.2: Invoke LLM with Tools
-    const llmResponse = await this.llmService.analyzeWithTools(step, configuredTools);
+    const toolSet = createTools(
+      step.useTools,
+      credentials,
+      step.region,
+      this.outputDir,
+      this.llmService.getModel()
+    );
     
-    // Step 4.3: Process tool results and generate charts
-    const toolResults = await this.processToolResults(step, configuredTools, index);
+    // Invoke LLM with Tools - tools will handle their own execution and return structured results
+    const llmResponse = await this.llmService.analyzeWithTools(step, toolSet);
     
     return {
       serviceRegion: { service: step.service, region: step.region, cost: 0, currency: 'USD', period: 'Unknown' },
       step,
-      toolResults,
+      toolResults: [], // Tools now handle their own result processing
       summary: llmResponse.summary,
-      chartPath: toolResults.find(r => r.chartPath)?.chartPath,
-      chartAnalysis: toolResults.find(r => r.chartAnalysis)?.chartAnalysis
+      chartPath: undefined, // Will be handled by individual tools
+      chartAnalysis: undefined // Will be handled by individual tools
     };
   }
 

@@ -27,12 +27,11 @@ export class AWSService {
    */
   async getTopServiceRegionCombos(topN: number = 10): Promise<ServiceRegionCombo[]> {
     try {
-      console.log('Fetching AWS cost and usage data...');
+      console.log('Fetching AWS cost per service per region data...');
       
       const inputParams = {
         granularity: 'MONTHLY',
-        groupBy: ['SERVICE', 'REGION'],
-        lookBack: 1
+        lookBack: 1  // Look back 1 month for the most recent data
       };
       
       const configParams = {
@@ -40,9 +39,9 @@ export class AWSService {
         region: this.credentials.region
       };
       
-      console.log('Calling awsGetCostAndUsage tool...', JSON.stringify(inputParams, null, 2));
-      // Call the awsGetCostAndUsage tool
-      const costData = await invoke('awsGetCostAndUsage', inputParams, configParams);
+      console.log('Calling awsCostPerServicePerRegion tool...', JSON.stringify(inputParams, null, 2));
+      // Call the awsCostPerServicePerRegion tool
+      const costData = await invoke('awsCostPerServicePerRegion', inputParams, configParams);
 
       // Parse and transform the cost data
       const serviceRegionCombos = this.parseCostData(costData);

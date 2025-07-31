@@ -1,0 +1,82 @@
+
+🔍 Starting direct analysis of AWS Lambda in us-east-1...
+
+Cost: $0.00
+Tools: awsGetCostAndUsage, awsCloudWatchGetMetrics
+AWS Service initialized with credentials: {
+  accessKeyId: 'ASIAYBPY...',
+  region: 'us-east-1',
+  hasSessionToken: true
+}
+📦 Creating AI SDK tool: awsGetCostAndUsage
+📦 Creating AI SDK tool: awsCloudWatchGetMetrics
+✅ Created 2 AI SDK tools
+📝 Sending prompt to LLM with 2 tools available...
+🤖 LLM PROMPT: 
+Analyze the AWS service costs for the following step:
+- Title: Direct Analysis of AWS Lambda in us-east-1
+- Service: AWS Lambda
+- Region: us-east-1
+- Available Tools: awsGetCostAndUsage, awsCloudWatchGetMetrics
+
+Please provide a comprehensive analysis using the available tools to gather data and insights about this service-region combination.
+
+Your response should include:
+1. A detailed analysis of this service's cost pattern
+2. Potential cost optimization recommendations
+3. Insights from the tool data gathered
+
+Use the available tools to gather real data and provide actionable insights based on the actual AWS data.
+
+🚀 Calling LLM with tools...
+🔧 TOOL CALL: awsGetCostAndUsage with params: {
+  "granularity": "DAILY",
+  "groupBy": [
+    "SERVICE",
+    "USAGE_TYPE"
+  ],
+  "lookBack": 30,
+  "filter": {
+    "Dimensions": {
+      "Key": "SERVICE",
+      "Values": [
+        "AWS Lambda"
+      ]
+    }
+  }
+}
+✅ TOOL RESULT: awsGetCostAndUsage returned data
+💾 Datapoints saved to: output/data/awsGetCostAndUsage-zr4wo5m5hf-data.json
+🎨 Rendering chart to PNG: output/charts/png/awsGetCostAndUsage-s1i65sfhz3.png
+PNG file created successfully at output/charts/png/awsGetCostAndUsage-s1i65sfhz3.png
+📊 Chart saved to: output/charts/png/awsGetCostAndUsage-s1i65sfhz3.png
+🤖 Analyzing chart with model...
+✅ Chart analysis completed
+📊 STEP FINISHED:
+  - Text: I'll analyze AWS Lambda costs in us-east-1 using the available tools to provide you with comprehensive insights. Let me gather the cost data first....
+  - Tool Calls: 1
+  - Tool Results: 1
+  - Finish Reason: tool-calls
+  - Usage: {"promptTokens":1361,"completionTokens":172,"totalTokens":1533}
+🔧 TOOL CALL: awsGetCostAndUsage with params: {
+  "filter": {
+    "Dimensions": {
+      "Values": [
+        "AWS Lambda"
+      ],
+      "Key": "SERVICE"
+    }
+  },
+  "lookBack": 30,
+  "groupBy": [
+    "OPERATION",
+    "USAGE_TYPE"
+  ],
+  "granularity": "DAILY"
+}
+✅ TOOL RESULT: awsGetCostAndUsage returned data
+💾 Datapoints saved to: output/data/awsGetCostAndUsage-8a9yrd8liel-data.json
+🎨 Rendering chart to PNG: output/charts/png/awsGetCostAndUsage-roz4khwurce.png
+PNG file created successfully at output/charts/png/awsGetCostAndUsage-roz4khwurce.png
+📊 Chart saved to: output/charts/png/awsGetCostAndUsage-roz4khwurce.png
+🤖 Analyzing chart with model...

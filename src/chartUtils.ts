@@ -2,7 +2,6 @@
 
 import fs from 'fs';
 import * as path from 'path';
-import { createCanvas } from 'canvas';
 
 // Note: These imports are optional and only needed if chart generation is used
 // They're not included in the main dependencies to keep the package lightweight
@@ -25,41 +24,6 @@ async function loadVegaLibraries(): Promise<void> {
 }
 
 /**
- * Validates and sanitizes a Vega-Lite chart specification
- */
-function sanitizeChartSpec(chartSpec: any): any {
-  // Deep clone the spec to avoid modifying the original
-  const spec = JSON.parse(JSON.stringify(chartSpec));
-  
-  // Remove any problematic formatting that might cause issues
-  if (spec.encoding) {
-    Object.keys(spec.encoding).forEach(key => {
-      const encoding = spec.encoding[key];
-      if (encoding && encoding.axis) {
-        // Remove any problematic format strings
-        if (encoding.axis.format) {
-          delete encoding.axis.format;
-        }
-        if (encoding.axis.formatType) {
-          delete encoding.axis.formatType;
-        }
-      }
-    });
-  }
-  
-  // Ensure basic required fields
-  if (!spec.mark) {
-    spec.mark = 'bar';
-  }
-  
-  if (!spec.encoding) {
-    spec.encoding = {};
-  }
-  
-  return spec;
-}
-
-/**
  * Generates PNG and SVG files from a Vega-Lite chart specification
  * @param chartSpec - The Vega-Lite chart specification
  * @param filename - Base filename without extension
@@ -70,14 +34,11 @@ export async function generateChartFiles(chartSpec: any, filename: string, outpu
   await loadVegaLibraries();
   
   try {
-    // Sanitize the chart specification
-    const sanitizedSpec = sanitizeChartSpec(chartSpec);
-    
+
     console.log('Original chart spec:', JSON.stringify(chartSpec, null, 2));
-    console.log('Sanitized chart spec:', JSON.stringify(sanitizedSpec, null, 2));
     
     // Compile Vega-Lite to Vega specification
-    const vegaSpec = vegaLite.compile(sanitizedSpec).spec;
+    const vegaSpec = vegaLite.compile(chartSpec).spec;
 
     // Ensure output directories exist
     const svgDir = path.join(outputDir, 'svg');
@@ -129,13 +90,9 @@ export async function generatePNGChart(chartSpec: any, filename: string, outputD
   await loadVegaLibraries();
   
   try {
-    // Sanitize the chart specification
-    const sanitizedSpec = sanitizeChartSpec(chartSpec);
-    
-    console.log('Generating PNG chart with spec:', JSON.stringify(sanitizedSpec, null, 2));
     
     // Compile Vega-Lite to Vega specification
-    const vegaSpec = vegaLite.compile(sanitizedSpec).spec;
+    const vegaSpec = vegaLite.compile(chartSpec).spec;
 
     // Ensure output directory exists
     const pngDir = path.join(outputDir, 'png');
@@ -176,11 +133,9 @@ export async function generateSVGChart(chartSpec: any, filename: string, outputD
   await loadVegaLibraries();
   
   try {
-    // Sanitize the chart specification
-    const sanitizedSpec = sanitizeChartSpec(chartSpec);
     
     // Compile Vega-Lite to Vega specification
-    const vegaSpec = vegaLite.compile(sanitizedSpec).spec;
+    const vegaSpec = vegaLite.compile(chartSpec).spec;
 
     // Create a Vega view
     const view = new vega.View(vega.parse(vegaSpec), {
