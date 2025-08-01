@@ -1,5 +1,5 @@
 // Main exports for the AWS Cost Analyzer CLI
-export { analyze, executeAnalysisStep, validateTools } from './analyzer.js';
+export { analyze, executeAnalysisStep, validateTools, generateReportFromExisting } from './analyzer.js';
 export { generateReport, generateSummaryReport, generateStepReport, generateAnalysisPaths } from './report-generator.js';
 export { getTopServiceRegionCombos } from './aws-service.js';
 export { createModel, planAnalysis, analyzeWithTools } from './llm.js';

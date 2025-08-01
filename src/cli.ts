@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import * as path from 'path';
 import { loadCredentials, createExampleCredentialsFile } from './config.js';
-import { analyze, executeAnalysisStep } from './analyzer.js';
+import { analyze, executeAnalysisStep, generateReportFromExisting } from './analyzer.js';
 import { generateReport, generateSummaryReport } from './report-generator.js';
 import { createModel } from './llm.js';
 import { ReportConfig } from './types.js';
@@ -220,6 +220,35 @@ program
     }
   });
 
+program
+  .command('generate-report')
+  .description('Generate comprehensive report from existing analysis files')
+  .requiredOption('-e, --execution-id <id>', 'Execution ID to generate report for')
+  .option('-o, --output-dir <path>', 'Output directory', './output')
+  .action(async (options) => {
+    const spinner = ora('Generating comprehensive report...').start();
+    
+    try {
+      // Load AWS credentials for LLM access
+      spinner.text = 'Loading AWS credentials...';
+      const credentials = await loadCredentials();
+      spinner.succeed('AWS credentials loaded');
+
+      // Generate report from existing analysis files
+      spinner.text = 'Reading existing analysis files...';
+      const reportPath = await generateReportFromExisting(options.executionId, options.outputDir, credentials);
+      
+      spinner.succeed('Comprehensive report generated');
+      console.log(chalk.green(`\n✅ Report generated: ${reportPath}`));
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      spinner.fail(`Failed to generate report: ${errorMessage}`);
+      console.error(chalk.red(`Error: ${errorMessage}`));
+      process.exit(1);
+    }
+  });
+
 // Handle unknown commands
 program.on('command:*', () => {
   console.error(chalk.red('Invalid command: %s'), program.args.join(' '));
@@ -237,6 +266,8 @@ if (!process.argv.slice(2).length) {
   console.log(chalk.blue('\nDirect step analysis:'));
   console.log(chalk.gray('  aws-cost-analyzer analyze-step -s "AWS Lambda" -r "us-east-1" -t "awsGetCostAndUsage,awsCloudWatchGetMetrics"'));
   console.log(chalk.gray('  aws-cost-analyzer analyze-step -s "Amazon S3" -r "us-west-2" -c "150.50" -t "awsGetCostAndUsage"'));
+  console.log(chalk.blue('\nReport generation:'));
+  console.log(chalk.gray('  aws-cost-analyzer generate-report -e "01K1JNBJM58W2ZP9FEDH8SAM13"  # Generate report from existing analysis'));
   console.log(chalk.blue('\nUtility commands:'));
   console.log(chalk.gray('  aws-cost-analyzer list-tools       # List all available AWS tools'));
 }

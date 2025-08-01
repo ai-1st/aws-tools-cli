@@ -180,9 +180,12 @@ async function compileComprehensiveReport(
     return {
       title,
       relativePath,
-      content: content.substring(0, 1000) + (content.length > 1000 ? '...' : '') // Truncate for overview
+      content: content // Send full content to LLM
     };
   }).filter(item => !item.content.includes('Analysis Failed'));
+
+  const totalContentLength = analysisOverview.reduce((sum, item) => sum + item.content.length, 0);
+  console.log(chalk.blue(`\n📊 Sending ${totalContentLength.toLocaleString()} characters of analysis content to LLM...`));
 
   const prompt = `
 You are tasked with creating a comprehensive AWS cost analysis report that summarizes and links to individual service analyses.
@@ -195,28 +198,45 @@ Individual Analysis Reports:
 ${analysisOverview.map((item, index) => `
 ${index + 1}. **${item.title}**
    - Report file: ${item.relativePath}
-   - Preview: ${item.content.split('\n').slice(0, 5).join(' ').substring(0, 200)}...
+   - Full Content:
+${item.content}
+
+---
+
 `).join('\n')}
 
-Please create a comprehensive executive summary report that:
+Please create a comprehensive executive summary report that synthesizes insights from all the full analysis reports above:
 
-1. **Executive Summary**: Provide a high-level overview of all analyzed services
-2. **Cost Overview**: Summarize total costs and key cost drivers across all services
-3. **Key Findings**: Highlight the most important insights from all analyses
-4. **Cross-Service Recommendations**: Provide optimization recommendations that span multiple services
-5. **Individual Service Links**: Include a section with links to detailed individual reports
+1. **Executive Summary**: Provide a strategic overview analyzing patterns across all services
+2. **Cost Analysis**: 
+   - Total cost breakdown across all services
+   - Cost trends and patterns identified
+   - Cost drivers and optimization opportunities
+3. **Key Findings**: 
+   - Extract and synthesize the most critical insights from all analyses
+   - Identify cross-service patterns and correlations
+   - Highlight unexpected findings or anomalies
+4. **Strategic Recommendations**: 
+   - Prioritized optimization recommendations across all services
+   - Cross-service optimization opportunities
+   - Risk mitigation strategies
+5. **Service Performance Summary**: Brief summary of each service's key metrics and status
+6. **Individual Service Links**: Include links to detailed individual reports
 
 Format the report in markdown and include relative links to individual reports like:
 - [Service Name Analysis](./service-region-analysis.md)
 
-Make the report comprehensive but concise, focusing on actionable insights and strategic recommendations.
+Since you have access to the full content of all analyses, provide deep insights and actionable strategic recommendations that leverage the complete data set.
+Make sure to include charts in your response if they are relevant and helpful.
+
+The response should be in markdown format. Do not use emoticons.
 `;
 
   try {
     const result = await generateText({
       model: model,
       prompt,
-      maxTokens: 4096,
+      maxTokens: 8192,
       temperature: 0.3
     });
 
@@ -226,6 +246,67 @@ Make the report comprehensive but concise, focusing on actionable insights and s
     // Fallback to a simple compilation
     return createFallbackReport(results, executionId);
   }
+}
+
+/**
+ * Generate comprehensive report from existing analysis files
+ */
+export async function generateReportFromExisting(
+  executionId: string, 
+  outputDir: string = './output',
+  credentials: AWSCredentials
+): Promise<string> {
+  const executionPath = path.join(outputDir, executionId);
+  
+  // Check if execution directory exists
+  if (!await fs.pathExists(executionPath)) {
+    throw new Error(`Execution directory not found: ${executionPath}`);
+  }
+
+  // Find all analysis files
+  const analysisFiles = await fs.readdir(executionPath);
+  const analysisMarkdownFiles = analysisFiles.filter(file => 
+    file.endsWith('-analysis.md') && !file.startsWith('.')
+  );
+
+  if (analysisMarkdownFiles.length === 0) {
+    throw new Error(`No analysis files found in: ${executionPath}`);
+  }
+
+  console.log(chalk.blue(`\nFound ${analysisMarkdownFiles.length} analysis files:`));
+  analysisMarkdownFiles.forEach((file, index) => {
+    console.log(chalk.gray(`${index + 1}. ${file}`));
+  });
+
+  // Read all analysis files and create tuples
+  const results: [string, AnalysisResult][] = [];
+  
+  for (const fileName of analysisMarkdownFiles) {
+    const filePath = path.join(executionPath, fileName);
+    try {
+      const content = await fs.readFile(filePath, 'utf8');
+      results.push([filePath, content]);
+    } catch (error) {
+      console.warn(chalk.yellow(`Warning: Could not read ${fileName}: ${error}`));
+    }
+  }
+
+  if (results.length === 0) {
+    throw new Error('Could not read any analysis files');
+  }
+
+  // Create model for LLM compilation
+  const model = createModel();
+  
+  // Compile comprehensive report using existing function
+  const compiledReport = await compileComprehensiveReport(results, executionId, model);
+  
+  // Write the comprehensive report
+  const comprehensiveReportPath = path.join(executionPath, 'report.md');
+  await fs.writeFile(comprehensiveReportPath, compiledReport, 'utf8');
+  
+  console.log(chalk.green(`\n✅ Successfully compiled ${results.length} analysis files`));
+  return comprehensiveReportPath;
 }
 
 /**

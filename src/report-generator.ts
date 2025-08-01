@@ -30,13 +30,12 @@ export async function generateStepReport(
   
   // Ensure the directory exists
   await fs.ensureDir(paths.reportDir);
-  
-  // Replace absolute paths with relative paths for images
-  // This converts "./output/execution_id/" to "./" for images to load properly
-  const content = analysisContent.replace(/\.\/output\/[^/]+\//g, './');
-  
+
+  const regex = /\".*\/([^\/]+\/[^\/]+\/[^\/]+\.png)\"/gm;
+  const contentWithRelativeUrls = analysisContent.replace(regex, '"./$1"');
+
   // Write the report to file
-  await fs.writeFile(paths.reportPath, content, 'utf8');
+  await fs.writeFile(paths.reportPath, contentWithRelativeUrls, 'utf8');
   
   console.log(`Step report generated: ${paths.reportPath}`);
   return paths.reportPath;

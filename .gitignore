@@ -52,3 +52,4 @@ temp/
 .eslintcache 
 
 output.txt
+_site/

@@ -111,7 +111,7 @@ Your response should include:
 
 Keep in mind that it doesn't make sense to group by a dimension while filtering by the same dimension - there will be only one group anyway.
 
-The response should be in MarkDown format.
+The response should be in MarkDown format. Don't use emoticons.
 
 The tools may return a path to a PNG image with the chart, along with a text description of the chart.
 Please embed the chart in your response if it is relevant and helpful.
@@ -120,7 +120,7 @@ Example image embedding:
   <img
     src="./output/image_name.png" width="800"
   />
-</p>
+</p>.
 `;
 
   console.log(`🤖 LLM PROMPT:`, prompt);
