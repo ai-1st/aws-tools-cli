@@ -118,6 +118,12 @@ The response should be in MarkDown format.
 
 The tools may return a path to a PNG image with the chart, along with a text description of the chart.
 Please embed the chart in your response if it is relevant and helpful.
+Example image embedding:
+<p align="center">
+  <img
+    src="./output/image_name.png" width="800"
+  />
+</p>
 `;
 
     console.log(`🤖 LLM PROMPT:`, prompt);

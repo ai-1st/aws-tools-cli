@@ -60,5 +60,21 @@ export class Config {
     return this.credentials;
   }
 
+  /**
+   * Create an example credentials file
+   */
+  public async createExampleCredentialsFile(outputPath: string): Promise<void> {
+    const exampleCredentials: AWSCredentialsFile = {
+      Credentials: {
+        AccessKeyId: 'AKIA...',
+        SecretAccessKey: 'your-secret-access-key',
+        SessionToken: 'your-session-token-if-using-temporary-credentials'
+      },
+      region: 'us-east-1'
+    };
+
+    await fs.writeJson(outputPath, exampleCredentials, { spaces: 2 });
+  }
+}
 
 export const config = Config.getInstance(); 

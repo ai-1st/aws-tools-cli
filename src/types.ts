@@ -44,6 +44,7 @@ export interface AnalysisResult {
   summary: string;
   chartPath?: string;
   chartAnalysis?: string;
+  executionId: string;
 }
 
 export interface ReportConfig {

@@ -30,8 +30,6 @@ export class CostAnalyzer {
     try {
       // Ensure output directory exists
       await fs.ensureDir(this.outputDir);
-      await fs.ensureDir(path.join(this.outputDir, 'charts'));
-      await fs.ensureDir(path.join(this.outputDir, 'data'));
 
       // Step 1 & 2: Get top service-region combinations ordered by cost
       spinner.text = 'Fetching top service-region combinations...';
@@ -85,7 +83,8 @@ export class CostAnalyzer {
             toolResults: [],
             summary: `Step failed: ${errorMessage}`,
             chartPath: undefined,
-            chartAnalysis: undefined
+            chartAnalysis: undefined,
+            executionId: ulid()
           });
         }
       }
@@ -172,7 +171,8 @@ export class CostAnalyzer {
       toolResults: [], // Tools now handle their own result processing
       summary: llmResponse.summary,
       chartPath: undefined, // Will be handled by individual tools
-      chartAnalysis: undefined // Will be handled by individual tools
+      chartAnalysis: undefined, // Will be handled by individual tools
+      executionId
     };
   }
 

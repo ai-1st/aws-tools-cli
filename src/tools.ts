@@ -72,7 +72,8 @@ export function createTools(
 
           // Generate a single call ID for this tool execution
           const callId = generateUniqueId();
-          const serviceRegion = `${service}-${region}`;
+          const sanitizedService = service.replace(/\s+/g, '_');
+          const serviceRegion = `${sanitizedService}-${region}`;
           const toolDir = path.join(outputPath, executionId, serviceRegion, toolName);
 
           // Prepare the result object

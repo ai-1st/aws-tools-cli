@@ -136,12 +136,17 @@ program
       
       const result = await analyzer.executeAnalysisStep(step, 0);
 
-      // Generate report for this step
+      // Generate report for this step in the structured directory
+      const sanitizedService = result.step.service.replace(/\s+/g, '_');
+      const serviceRegion = `${sanitizedService}-${result.step.region}`;
+      const reportDir = path.join(outputDir, result.executionId);
+      const reportPath = path.join(reportDir, `${serviceRegion}-analysis.md`);
+      
       const reportGenerator = new ReportGenerator(outputDir);
-      await reportGenerator.generateStepReport([result], options.output);
+      await reportGenerator.generateStepReport([result], reportPath);
 
       console.log(chalk.green('\n✅ Step analysis completed successfully!'));
-      console.log(chalk.gray(`Report: ${options.output}`));
+      console.log(chalk.gray(`Report: ${reportPath}`));
       
       // Show quick stats
       const successfulAnalysis = result.summary && !result.summary.includes('Step failed');
@@ -169,7 +174,7 @@ program
   .option('-o, --output <path>', 'Output path for credentials file', '.aws-creds.json')
   .action(async (options) => {
     try {
-      await Config.createExampleCredentialsFile(options.output);
+      await config.createExampleCredentialsFile(options.output);
       console.log(chalk.green('✅ Example credentials file created'));
       console.log(chalk.yellow('⚠️  Please update the file with your actual AWS credentials'));
     } catch (error) {
