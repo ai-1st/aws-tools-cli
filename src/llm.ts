@@ -104,7 +104,6 @@ Analyze the AWS service costs for the following step:
 - Title: ${step.title}
 - Service: ${step.service}
 - Region: ${step.region}
-- Available Tools: ${Object.keys(tools).join(', ')}
 
 Please provide a comprehensive analysis using the available tools to gather data and insights about this service-region combination.
 
@@ -113,7 +112,12 @@ Your response should include:
 2. Potential cost optimization recommendations
 3. Insights from the tool data gathered
 
-Use the available tools to gather real data and provide actionable insights based on the actual AWS data.
+Keep in mind that it doesn't make sense to group by a dimension while filtering by the same dimension - there will be only one group anyway.
+
+The response should be in MarkDown format.
+
+The tools may return a path to a PNG image with the chart, along with a text description of the chart.
+Please embed the chart in your response if it is relevant and helpful.
 `;
 
     console.log(`🤖 LLM PROMPT:`, prompt);
@@ -124,19 +128,18 @@ Use the available tools to gather real data and provide actionable insights base
         model: this.model,
         prompt,
         tools,
-        maxSteps: 5, // Allow multiple tool calls
-        maxTokens: 2000,
-        temperature: 0.3,
-        onStepFinish: ({ text, toolCalls, toolResults, finishReason, usage }) => {
-          console.log(`📊 STEP FINISHED:`);
-          console.log(`  - Text: ${text ? text : 'No text'}`);
-          console.log(`  - Tool Calls: ${toolCalls?.length || 0}`);
-          console.log(`  - Tool Results: ${toolResults?.length || 0}`);
-          console.log(`  - Finish Reason: ${finishReason}`);
-          if (usage) {
-            console.log(`  - Usage: ${JSON.stringify(usage)}`);
-          }
-        }
+        maxSteps: 99, // Allow multiple tool calls
+        maxTokens: 8192,
+        // onStepFinish: ({ text, toolCalls, toolResults, finishReason, usage }) => {
+        //   console.log(`📊 STEP FINISHED:`);
+        //   console.log(`  - Text: ${text ? text : 'No text'}`);
+        //   console.log(`  - Tool Calls: ${toolCalls?.length || 0}`);
+        //   console.log(`  - Tool Results: ${toolResults?.length || 0}`);
+        //   console.log(`  - Finish Reason: ${finishReason}`);
+        //   if (usage) {
+        //     console.log(`  - Usage: ${JSON.stringify(usage)}`);
+        //   }
+        // }
       });
 
       console.log(`✅ LLM RESPONSE:`, result.text);

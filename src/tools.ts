@@ -26,7 +26,9 @@ export function createTools(
   credentials: Credentials,
   region: string,
   outputPath: string,
-  model: any
+  model: any,
+  executionId: string,
+  service: string
 ): ToolSet {
   const toolSet: ToolSet = {};
 
@@ -68,6 +70,11 @@ export function createTools(
 
           console.log(`✅ TOOL RESULT: ${toolName} returned data`);
 
+          // Generate a single call ID for this tool execution
+          const callId = generateUniqueId();
+          const serviceRegion = `${service}-${region}`;
+          const toolDir = path.join(outputPath, executionId, serviceRegion, toolName);
+
           // Prepare the result object
           const toolResult: ToolResult = {
             summary: result.summary || 'Tool execution completed'
@@ -75,8 +82,8 @@ export function createTools(
 
           // Handle datapoints if present
           if (result.datapoints) {
-            const datapointsFilename = `${toolName}-${generateUniqueId()}-data.json`;
-            const datapointsPath = path.join(outputPath, 'data', datapointsFilename);
+            const datapointsFilename = `${callId}-data.json`;
+            const datapointsPath = path.join(toolDir, datapointsFilename);
             
             await fs.ensureDir(path.dirname(datapointsPath));
             await fs.writeFile(datapointsPath, JSON.stringify(result.datapoints, null, 2));
@@ -88,14 +95,14 @@ export function createTools(
           // Handle chart if present
           if (result.chart) {
             try {
-              const chartFilename = `${toolName}-${generateUniqueId()}`;
-              const chartPath = path.join(outputPath, 'charts', 'png', `${chartFilename}.png`);
+              const chartFilename = `${callId}-chart`;
+              const chartPath = path.join(toolDir, `${chartFilename}.png`);
               
-              await fs.ensureDir(path.dirname(chartPath));
+              await fs.ensureDir(toolDir);
               
               // Render chart to PNG
               console.log(`🎨 Rendering chart to PNG: ${chartPath}`);
-              await generatePNGChart(result.chart, chartFilename, path.join(outputPath, 'charts'));
+              await generatePNGChart(result.chart, chartFilename, toolDir);
               
               toolResult.chartPath = chartPath;
 

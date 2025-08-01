@@ -60,23 +60,5 @@ export class Config {
     return this.credentials;
   }
 
-  /**
-   * Create example credentials file
-   */
-  public static async createExampleCredentialsFile(filePath: string = '.aws-creds.json'): Promise<void> {
-    const exampleCreds = {
-      Credentials: {
-        AccessKeyId: "YOUR_AWS_ACCESS_KEY_ID",
-        SecretAccessKey: "YOUR_AWS_SECRET_ACCESS_KEY",
-        SessionToken: "YOUR_SESSION_TOKEN_IF_USING_STS"
-      },
-      region: "us-east-1"
-    };
-
-    await fs.writeJson(filePath, exampleCreds, { spaces: 2 });
-    console.log(`Example credentials file created at ${filePath}`);
-    console.log('Please update it with your actual AWS credentials.');
-  }
-}
 
 export const config = Config.getInstance(); 

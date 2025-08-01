@@ -1,5 +1,6 @@
 import * as path from 'path';
 import fs from 'fs-extra';
+import { ulid } from 'ulid';
 import { AWSService } from './aws-service.js';
 import { LLMService } from './llm.js';
 import { config } from './config.js';
@@ -141,6 +142,10 @@ export class CostAnalyzer {
     // Validate that all requested tools exist
     this.validateTools(step.useTools);
     
+    // Generate execution ID for this analysis step
+    const executionId = ulid();
+    console.log(`🆔 Execution ID: ${executionId}`);
+    
     // Create AI SDK compatible tools using the new tools system
     const credentials = {
       accessKeyId: config.getCredentials().accessKeyId,
@@ -153,7 +158,9 @@ export class CostAnalyzer {
       credentials,
       step.region,
       this.outputDir,
-      this.llmService.getModel()
+      this.llmService.getModel(),
+      executionId,
+      step.service
     );
     
     // Invoke LLM with Tools - tools will handle their own execution and return structured results

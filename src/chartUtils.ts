@@ -95,22 +95,21 @@ export async function generatePNGChart(chartSpec: any, filename: string, outputD
     const vegaSpec = vegaLite.compile(chartSpec).spec;
 
     // Ensure output directory exists
-    const pngDir = path.join(outputDir, 'png');
-    if (!fs.existsSync(pngDir)) {
-      fs.mkdirSync(pngDir, { recursive: true });
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
     }
 
     // Generate PNG file using canvas
     const canvasView = new vega.View(vega.parse(vegaSpec), { renderer: 'none' });
     const canvas = await canvasView.toCanvas();
-    const out = fs.createWriteStream(path.join(pngDir, `${filename}.png`));
+    const out = fs.createWriteStream(path.join(outputDir, `${filename}.png`));
     const stream = (canvas as any).createPNGStream();
     
     stream.pipe(out);
     
     return new Promise<void>((resolve, reject) => {
       out.on('finish', () => {
-        console.log(`PNG file created successfully at ${path.join(pngDir, `${filename}.png`)}`);
+        console.log(`PNG file created successfully at ${path.join(outputDir, `${filename}.png`)}`);
         resolve();
       });
       out.on('error', reject);
