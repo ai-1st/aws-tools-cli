@@ -4,9 +4,10 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as path from 'path';
-import { config, Config } from './config.js';
-import { CostAnalyzer } from './analyzer.js';
+import { loadCredentials, createExampleCredentialsFile } from './config.js';
+import { analyze, executeAnalysisStep } from './analyzer.js';
 import { ReportGenerator } from './report-generator.js';
+import { createModel } from './llm.js';
 import { ReportConfig } from './types.js';
 
 const program = new Command();
@@ -30,7 +31,7 @@ program
     try {
       // Load AWS credentials
       spinner.text = 'Loading AWS credentials...';
-      await config.loadCredentials(options.credentials);
+      const credentials = await loadCredentials(options.credentials);
       spinner.succeed('AWS credentials loaded');
 
       // Parse options
@@ -47,11 +48,13 @@ program
 
       // Create analyzer and run analysis
       const outputDir = path.dirname(reportConfig.outputPath);
-      const analyzer = new CostAnalyzer(outputDir);
+      // Load credentials
+      const awsCredentials = await loadCredentials();
+      console.log(chalk.green('✔ AWS credentials loaded'));
       
       console.log(chalk.blue(`\n🔍 Starting analysis of top ${topN} service-region combinations...\n`));
       
-      const results = await analyzer.analyze(reportConfig);
+      const results = await analyze(reportConfig, outputDir, awsCredentials);
 
       if (results.length === 0) {
         console.log(chalk.yellow('No cost data found to analyze'));
@@ -107,7 +110,7 @@ program
     try {
       // Load AWS credentials
       spinner.text = 'Loading AWS credentials...';
-      await config.loadCredentials(options.credentials || '.aws-creds.json');
+      const credentials = await loadCredentials(options.credentials || '.aws-creds.json');
       spinner.succeed('AWS credentials loaded');
 
       // Parse tools
@@ -132,9 +135,9 @@ program
 
       // Create analyzer and run step analysis
       const outputDir = path.dirname(options.output);
-      const analyzer = new CostAnalyzer(outputDir);
+      const model = createModel();
       
-      const result = await analyzer.executeAnalysisStep(step, 0);
+      const result = await executeAnalysisStep(step, outputDir, model, credentials);
 
       // Generate report for this step in the structured directory
       const sanitizedService = result.step.service.replace(/\s+/g, '_');
@@ -174,7 +177,7 @@ program
   .option('-o, --output <path>', 'Output path for credentials file', '.aws-creds.json')
   .action(async (options) => {
     try {
-      await config.createExampleCredentialsFile(options.output);
+      await createExampleCredentialsFile(options.output);
       console.log(chalk.green('✅ Example credentials file created'));
       console.log(chalk.yellow('⚠️  Please update the file with your actual AWS credentials'));
     } catch (error) {
@@ -192,13 +195,12 @@ program
     const spinner = ora('Validating AWS credentials...').start();
     
     try {
-      await config.loadCredentials(options.credentials);
+      const credentials = await loadCredentials(options.credentials);
       spinner.succeed('AWS credentials are valid');
       
-      const creds = config.getCredentials();
       console.log(chalk.blue('Credentials info:'));
-      console.log(chalk.gray(`  Region: ${creds.region}`));
-      console.log(chalk.gray(`  Access Key ID: ${creds.accessKeyId.substring(0, 8)}...`));
+      console.log(chalk.gray(`  Region: ${credentials.region}`));
+      console.log(chalk.gray(`  Access Key ID: ${credentials.accessKeyId.substring(0, 8)}...`));
       
     } catch (error) {
       spinner.fail('Validation failed');

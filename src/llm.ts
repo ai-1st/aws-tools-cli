@@ -3,28 +3,19 @@ import { generateText, generateObject, jsonSchema, ToolSet } from 'ai';
 import { ChartAnalysisResult, PlanningRequest, PlanningResponse, AnalysisStep } from './types.js';
 import fs from 'fs-extra';
 
-export class LLMService {
-  private model: any;
+/**
+ * Create AI model instance
+ */
+export function createModel() {
+  const bedrock = createAmazonBedrock({region: 'us-east-1'});
+  return bedrock("us.anthropic.claude-sonnet-4-20250514-v1:0");
+}
 
-  constructor() {
-    // Use default AWS credentials from environment variables for Bedrock
-    const bedrock = createAmazonBedrock({region: 'us-east-1'});
-    
-    this.model = bedrock("us.anthropic.claude-sonnet-4-20250514-v1:0");
-  }
-
-  /**
-   * Get the AI SDK model for use with tools
-   */
-  getModel() {
-    return this.model;
-  }
-
-  /**
-   * Plan analysis steps using LLM
-   */
-  async planAnalysis(request: PlanningRequest): Promise<PlanningResponse> {
-    const prompt = `
+/**
+ * Plan analysis steps using LLM
+ */
+export async function planAnalysis(request: PlanningRequest, model: any): Promise<PlanningResponse> {
+  const prompt = `
 You are an AWS cost analysis expert. Given the following service-region combinations and available tools, create a plan for analyzing each service.
 
 Service-Region Combinations:
@@ -43,67 +34,73 @@ Create a structured plan with analysis steps. Each step should:
 For each service-region combination, create an analysis step that uses the most relevant tools for that specific service.
 `;
 
-    console.log(prompt);
-    try {
-      const result = await generateObject({
-        model: this.model,
-        prompt,
-        schema: jsonSchema({
-          type: 'object',
-          properties: {
-            steps: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  title: {
-                    type: 'string',
-                    description: 'A descriptive title for the analysis step'
-                  },
-                  service: {
-                    type: 'string',
-                    description: 'The AWS service name to analyze'
-                  },
-                  region: {
-                    type: 'string',
-                    description: 'The AWS region to analyze'
-                  },
-                  useTools: {
-                    type: 'array',
-                    items: {
-                      type: 'string'
-                    },
-                    description: 'Array of tool names to use for this step'
-                  }
+  console.log(prompt);
+  try {
+    const result = await generateObject({
+      model: model,
+      prompt,
+      schema: jsonSchema({
+        type: 'object',
+        properties: {
+          steps: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                title: {
+                  type: 'string',
+                  description: 'A descriptive title for the analysis step'
                 },
-                required: ['title', 'service', 'region', 'useTools']
-              }
+                service: {
+                  type: 'string',
+                  description: 'The AWS service name to analyze'
+                },
+                region: {
+                  type: 'string',
+                  description: 'The AWS region to analyze'
+                },
+                useTools: {
+                  type: 'array',
+                  items: {
+                    type: 'string'
+                  },
+                  description: 'Array of tool names to use for this step'
+                }
+              },
+              required: ['title', 'service', 'region', 'useTools']
             }
-          },
-          required: ['steps']
-        }),
-        maxTokens: 2000,
-        temperature: 0.3
-      });
+          }
+        },
+        required: ['steps']
+      }),
+      maxTokens: 2000,
+      temperature: 0.3
+    });
 
-      return result.object as PlanningResponse;
-    } catch (error) {
-      console.error('Error planning analysis:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to plan analysis: ${errorMessage}`);
-    }
+    return result.object as PlanningResponse;
+  } catch (error) {
+    console.error('Error planning analysis:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to plan analysis: ${errorMessage}`);
   }
+}
 
-  /**
-   * Analyze with tools using AI SDK
-   */
-  async analyzeWithTools(step: AnalysisStep, tools: ToolSet): Promise<{ summary: string }> {
-    console.log(`📝 Sending prompt to LLM with ${Object.keys(tools).length} tools available...`);
-    const prompt = `
+/**
+ * Analyze with tools using AI SDK
+ */
+export async function analyzeWithTools(
+  service: string,
+  region: string,
+  title: string,
+  tools: ToolSet,
+  model: any
+): Promise<string> {
+  console.log(`📝 Sending prompt to LLM with ${Object.keys(tools).length} tools available...`);
+  const prompt = `
 Analyze the AWS service costs for the following step:
-- Title: ${step.title}
-- Service: ${step.service}
-- Region: ${step.region}
+- Title: ${title}
+- Service: ${service}
+- Region: ${region}
 
 Please provide a comprehensive analysis using the available tools to gather data and insights about this service-region combination.
 
@@ -126,40 +123,25 @@ Example image embedding:
 </p>
 `;
 
-    console.log(`🤖 LLM PROMPT:`, prompt);
+  console.log(`🤖 LLM PROMPT:`, prompt);
 
-    try {
-      console.log(`🚀 Calling LLM with tools...`);
-      const result = await generateText({
-        model: this.model,
-        prompt,
-        tools,
-        maxSteps: 99, // Allow multiple tool calls
-        maxTokens: 8192,
-        // onStepFinish: ({ text, toolCalls, toolResults, finishReason, usage }) => {
-        //   console.log(`📊 STEP FINISHED:`);
-        //   console.log(`  - Text: ${text ? text : 'No text'}`);
-        //   console.log(`  - Tool Calls: ${toolCalls?.length || 0}`);
-        //   console.log(`  - Tool Results: ${toolResults?.length || 0}`);
-        //   console.log(`  - Finish Reason: ${finishReason}`);
-        //   if (usage) {
-        //     console.log(`  - Usage: ${JSON.stringify(usage)}`);
-        //   }
-        // }
-      });
+  try {
+    console.log(`🚀 Calling LLM with tools...`);
+    const result = await generateText({
+      model: model,
+      prompt,
+      tools,
+      maxSteps: 99, // Allow multiple tool calls
+      maxTokens: 8192,
+    });
 
-      console.log(`✅ LLM RESPONSE:`, result.text);
-      console.log(`📊 LLM STEPS:`, result.steps?.length || 0);
+    console.log(`✅ LLM RESPONSE:`, result.text);
+    console.log(`📊 LLM STEPS:`, result.steps?.length || 0);
 
-      return {
-        summary: result.text
-      };
-    } catch (error) {
-      console.error('❌ Error analyzing with tools:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to analyze with tools: ${errorMessage}`);
-    }
+    return result.text;
+  } catch (error) {
+    console.error('❌ Error analyzing with tools:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to analyze with tools: ${errorMessage}`);
   }
-
-
-} 
+}
