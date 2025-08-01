@@ -6,9 +6,12 @@ import ora from 'ora';
 import * as path from 'path';
 import { loadCredentials, createExampleCredentialsFile } from './config.js';
 import { analyze, executeAnalysisStep } from './analyzer.js';
-import { ReportGenerator } from './report-generator.js';
+import { generateReport, generateSummaryReport } from './report-generator.js';
 import { createModel } from './llm.js';
 import { ReportConfig } from './types.js';
+import { generateStepReport } from './report-generator.js';
+import fs from 'fs-extra';
+import { ulid } from 'ulid';
 
 const program = new Command();
 
@@ -50,43 +53,41 @@ program
       const outputDir = path.dirname(reportConfig.outputPath);
       // Load credentials
       const awsCredentials = await loadCredentials();
+      const executionId = ulid();
       console.log(chalk.green('✔ AWS credentials loaded'));
       
       console.log(chalk.blue(`\n🔍 Starting analysis of top ${topN} service-region combinations...\n`));
       
-      const results = await analyze(reportConfig, outputDir, awsCredentials);
+      const results = await analyze(reportConfig, outputDir, awsCredentials, executionId);
 
       if (results.length === 0) {
         console.log(chalk.yellow('No cost data found to analyze'));
         return;
       }
 
-      // Generate report
-      const reportGenerator = new ReportGenerator(outputDir);
+      // For multi-step analysis, we need to extract execution IDs and create combined report
+      // This is simplified for now - in practice you'd want to handle multiple execution IDs
+      const combinedReport = results.join('\n\n---\n\n');
+      const firstExecutionId = results[0]?.match(/🆔 Execution ID: ([A-Z0-9]+)/)?.[1] || 'combined';
+      const combinedServiceRegion = 'multi-service-analysis';
       
       if (options.summaryOnly) {
-        const summaryPath = reportConfig.outputPath.replace('.md', '-summary.md');
-        await reportGenerator.generateSummaryReport(results, summaryPath);
+        await generateSummaryReport(combinedReport, outputDir, firstExecutionId, combinedServiceRegion);
       } else {
-        await reportGenerator.generateReport(results, reportConfig);
+        await generateReport(combinedReport, outputDir, firstExecutionId, combinedServiceRegion);
         
         // Also generate summary
-        const summaryPath = reportConfig.outputPath.replace('.md', '-summary.md');
-        await reportGenerator.generateSummaryReport(results, summaryPath);
+        await generateSummaryReport(combinedReport, outputDir, firstExecutionId, combinedServiceRegion);
       }
 
       console.log(chalk.green('\n✅ Analysis completed successfully!'));
-      console.log(chalk.gray(`Full report: ${reportConfig.outputPath}`));
+      console.log(chalk.gray(`Reports saved to: ${path.join(outputDir, firstExecutionId)}`));
       
       // Show quick stats
-      const totalCost = results.reduce((sum: number, result: any) => sum + result.serviceRegion.cost, 0);
-      const successfulAnalyses = results.filter((r: any) => r.summary && !r.summary.includes('Analysis failed')).length;
-      const chartsGenerated = results.filter((r: any) => r.chartPath).length;
+      const successfulAnalyses = results.filter((r: string) => r && !r.includes('Analysis failed')).length;
 
       console.log(chalk.blue('\n📊 Analysis Summary:'));
-      console.log(chalk.gray(`  Total cost analyzed: $${totalCost.toFixed(2)}`));
       console.log(chalk.gray(`  Successful analyses: ${successfulAnalyses}/${results.length}`));
-      console.log(chalk.gray(`  Charts generated: ${chartsGenerated}`));
 
     } catch (error) {
       spinner.fail('Analysis failed');
@@ -136,28 +137,26 @@ program
       // Create analyzer and run step analysis
       const outputDir = path.dirname(options.output);
       const model = createModel();
+      const executionId = ulid();
       
-      const result = await executeAnalysisStep(step, outputDir, model, credentials);
+      const result = await executeAnalysisStep(step, outputDir, model, credentials, executionId);
 
-      // Generate report for this step in the structured directory
-      const sanitizedService = result.step.service.replace(/\s+/g, '_');
-      const serviceRegion = `${sanitizedService}-${result.step.region}`;
-      const reportDir = path.join(outputDir, result.executionId);
-      const reportPath = path.join(reportDir, `${serviceRegion}-analysis.md`);
+      // Generate report for this step in the structured directory  
+      const sanitizedService = step.service.replace(/\s+/g, '_');
+      const serviceRegion = `${sanitizedService}-${step.region}`;
       
-      const reportGenerator = new ReportGenerator(outputDir);
-      await reportGenerator.generateStepReport([result], reportPath);
+      const reportPath = await generateStepReport(result, outputDir, executionId, serviceRegion);
 
       console.log(chalk.green('\n✅ Step analysis completed successfully!'));
       console.log(chalk.gray(`Report: ${reportPath}`));
       
       // Show quick stats
-      const successfulAnalysis = result.summary && !result.summary.includes('Step failed');
-      const chartsGenerated = result.chartPath ? 1 : 0;
+      const successfulAnalysis = result && !result.includes('Analysis failed');
+      const chartsGenerated = 0;
 
       console.log(chalk.blue('\n📊 Step Analysis Summary:'));
-      console.log(chalk.gray(`  Service: ${options.service}`));
-      console.log(chalk.gray(`  Region: ${options.region}`));
+      console.log(chalk.gray(`  Service: ${step.service}`));
+      console.log(chalk.gray(`  Region: ${step.region}`));
       console.log(chalk.gray(`  Cost: $${cost.toFixed(2)}`));
       console.log(chalk.gray(`  Tools used: ${tools.join(', ')}`));
       console.log(chalk.gray(`  Analysis successful: ${successfulAnalysis ? 'Yes' : 'No'}`));

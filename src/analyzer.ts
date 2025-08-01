@@ -29,13 +29,12 @@ export async function executeAnalysisStep(
   step: AnalysisStep, 
   outputDir: string, 
   model: any, 
-  credentials: AWSCredentials
+  credentials: AWSCredentials,
+  executionId: string
 ): Promise<AnalysisResult> {
   // Validate that all requested tools exist
   validateTools(step.useTools);
   
-  // Generate execution ID for this analysis step
-  const executionId = ulid();
   console.log(`🆔 Execution ID: ${executionId}`);
   
   // Create AI SDK compatible tools using the new tools system
@@ -58,15 +57,7 @@ export async function executeAnalysisStep(
   // Invoke LLM with Tools - tools will handle their own execution and return structured results
   const llmResponse = await analyzeWithTools(step.service, step.region, step.title, toolSet, model);
   
-  return {
-    serviceRegion: { service: step.service, region: step.region, cost: 0, currency: 'USD', period: 'Unknown' },
-    step,
-    toolResults: [], // Tools now handle their own result processing
-    summary: llmResponse,
-    chartPath: undefined, // Will be handled by individual tools
-    chartAnalysis: undefined, // Will be handled by individual tools
-    executionId
-  };
+  return llmResponse;
 }
 
 /**
@@ -75,7 +66,8 @@ export async function executeAnalysisStep(
 export async function analyze(
   reportConfig: ReportConfig, 
   outputDir: string = './output',
-  credentials: AWSCredentials
+  credentials: AWSCredentials,
+  executionId: string
 ): Promise<AnalysisResult[]> {
   const spinner = ora('Starting AWS cost analysis...').start();
   
@@ -121,22 +113,14 @@ export async function analyze(
       const spinner2 = ora(`Executing step: ${step.title} (${i + 1}/${plan.steps.length})...`).start();
 
       try {
-        const analysisResult = await executeAnalysisStep(step, outputDir, model, credentials);
+        const analysisResult = await executeAnalysisStep(step, outputDir, model, credentials, executionId);
         results.push(analysisResult);
         spinner2.succeed(`Completed step: ${step.title}`);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         spinner2.fail(`Failed to execute step: ${step.title}: ${errorMessage}`);
         // Continue with other steps
-        results.push({
-          serviceRegion: { service: step.service, region: step.region, cost: 0, currency: 'USD', period: 'Unknown' },
-          step,
-          toolResults: [],
-          summary: `Step failed: ${errorMessage}`,
-          chartPath: undefined,
-          chartAnalysis: undefined,
-          executionId: ulid()
-        });
+        results.push(`# Analysis Failed\n\nStep failed: ${errorMessage}`);
       }
     }
 

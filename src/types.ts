@@ -37,15 +37,7 @@ export interface ToolResult {
   chartAnalysis?: string;
 }
 
-export interface AnalysisResult {
-  serviceRegion: ServiceRegionCombo;
-  step: AnalysisStep;
-  toolResults: ToolResult[];
-  summary: string;
-  chartPath?: string;
-  chartAnalysis?: string;
-  executionId: string;
-}
+export type AnalysisResult = string;
 
 export interface ReportConfig {
   outputPath: string;
