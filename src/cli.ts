@@ -65,26 +65,14 @@ program
         return;
       }
 
-      // For multi-step analysis, we need to extract execution IDs and create combined report
-      // This is simplified for now - in practice you'd want to handle multiple execution IDs
-      const combinedReport = results.join('\n\n---\n\n');
-      const firstExecutionId = results[0]?.match(/🆔 Execution ID: ([A-Z0-9]+)/)?.[1] || 'combined';
-      const combinedServiceRegion = 'multi-service-analysis';
-      
-      if (options.summaryOnly) {
-        await generateSummaryReport(combinedReport, outputDir, firstExecutionId, combinedServiceRegion);
-      } else {
-        await generateReport(combinedReport, outputDir, firstExecutionId, combinedServiceRegion);
-        
-        // Also generate summary
-        await generateSummaryReport(combinedReport, outputDir, firstExecutionId, combinedServiceRegion);
-      }
-
+      // The analyze function now handles report compilation internally
+      // Just show summary of what was completed
       console.log(chalk.green('\n✅ Analysis completed successfully!'));
-      console.log(chalk.gray(`Reports saved to: ${path.join(outputDir, firstExecutionId)}`));
+      console.log(chalk.gray(`Reports saved to: ${path.join(outputDir, executionId)}`));
+      console.log(chalk.gray(`Comprehensive report: ${path.join(outputDir, executionId, 'report.md')}`));
       
       // Show quick stats
-      const successfulAnalyses = results.filter((r: string) => r && !r.includes('Analysis failed')).length;
+      const successfulAnalyses = results.filter(([_, content]) => !content.includes('Analysis Failed')).length;
 
       console.log(chalk.blue('\n📊 Analysis Summary:'));
       console.log(chalk.gray(`  Successful analyses: ${successfulAnalyses}/${results.length}`));
