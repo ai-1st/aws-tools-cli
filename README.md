@@ -232,37 +232,56 @@ The tool supports multiple analysis workflows:
 
 ```
 output/
-├── <execution-id>/             # Unique execution folder (e.g., 01K1JNBJM58W2ZP9FEDH8SAM13)
-│   ├── report.md              # Comprehensive analysis report
-│   ├── summary.md             # Executive summary report
-│   ├── service1-region1.md    # Individual service analysis
-│   ├── service2-region2.md    # Individual service analysis
-│   └── charts/
-│       ├── png/
-│       │   ├── service1-region1-0.png
-│       │   └── service2-region2-1.png
-│       └── svg/
-│           ├── service1-region1-0.svg
-│           └── service2-region2-1.svg
-├── <execution-id>.html         # HTML version (after running eleventy)
-└── step-analysis.md           # Single step analysis (analyze-step command)
+└── <execution-id>/                    # Unique execution folder (e.g., 01K1KBWEDBCEJT5CCMAA8R23WR)
+    ├── report.md                      # Comprehensive analysis report
+    ├── report.html                    # HTML version of comprehensive report
+    ├── <Service>-<region>-analysis.md # Individual service analysis files
+    ├── <Service>-<region>-analysis.html # HTML versions of individual analyses
+    └── <Service>-<region>/            # Service-specific data folders
+        └── <tool-name>/               # Tool-specific results (e.g., awsGetCostAndUsage)
+            ├── <ulid>-chart.png       # Generated chart images
+            └── <ulid>-data.json       # Raw data from tool execution
+```
+
+**Example structure:**
+```
+output/
+└── 01K1KBWEDBCEJT5CCMAA8R23WR/
+    ├── report.md
+    ├── report.html
+    ├── AWS_Lambda-us-east-1-analysis.md
+    ├── AWS_Lambda-us-east-1-analysis.html
+    ├── AmazonCloudWatch-global-analysis.md
+    ├── AmazonCloudWatch-global-analysis.html
+    └── AWS_Lambda-us-east-1/
+        ├── awsGetCostAndUsage/
+        │   ├── 01K1KBXXWV13D9041Y7GHCRPM6-chart.png
+        │   └── 01K1KBXXWV13D9041Y7GHCRPM6-data.json
+        └── awsCloudWatchGetMetrics/
+            ├── 01K1KBXF4BZK50GEGK0NRBNPZN-chart.png
+            └── 01K1KBXF4BZK50GEGK0NRBNPZN-data.json
 ```
 
 ## Report Contents
 
-### Main Report
-- Executive summary with total costs
-- Cost overview table
-- Detailed analysis for each service-region:
-  - AI-generated cost analysis
-  - Cost visualization charts
-  - Chart analysis with insights and recommendations
-- Methodology and appendix
+### Main Report (`report.md`)
+- Executive summary with total costs across all analyzed services
+- Cost overview and key findings
+- Links to individual service-region analysis files
+- Comprehensive recommendations and next steps
+- Methodology and analysis approach
 
-### Summary Report
-- High-level cost metrics
-- Top cost drivers
-- Quick optimization wins
+### Individual Service Reports (`<Service>-<region>-analysis.md`)
+- Detailed AI-generated cost analysis for specific service-region
+- Cost optimization recommendations
+- Links to generated charts and raw data
+- Service-specific insights and best practices
+
+### Generated Charts and Data
+- **Charts**: PNG images with cost visualizations (located in tool subdirectories)
+- **Data**: JSON files containing raw AWS API responses and processed data
+- **Organization**: Files organized by service-region and tool used
+- **Naming**: ULID-based unique identifiers for each chart/data pair
 
 ## Configuration
 
