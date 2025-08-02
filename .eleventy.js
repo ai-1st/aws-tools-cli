@@ -16,6 +16,7 @@ export default function(eleventyConfig) {
         }
     });
     eleventyConfig.setUseGitIgnore(false);
+    eleventyConfig.ignores.add("**/*.html");
     eleventyConfig.addGlobalData('layout', 'base.njk'); 
     return {
         dir: { 
