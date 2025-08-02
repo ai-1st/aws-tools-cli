@@ -72,6 +72,27 @@ aws-cost-analyzer validate
 aws-cost-analyzer analyze
 ```
 
+5. **Convert to HTML** (optional):
+```bash
+npx @11ty/eleventy
+```
+
+### Alternative Workflows
+
+**Single service analysis:**
+```bash
+# List available AWS tools
+aws-cost-analyzer list-tools
+
+# Analyze specific service-region
+aws-cost-analyzer analyze-step -s "AWS Lambda" -r "us-east-1"
+```
+
+**Generate report from existing analysis:**
+```bash
+aws-cost-analyzer generate-report -e "01K1JNBJM58W2ZP9FEDH8SAM13"
+```
+
 ## Usage
 
 ### Commands
@@ -105,6 +126,59 @@ aws-cost-analyzer analyze --summary-only
 aws-cost-analyzer analyze --no-charts
 ```
 
+#### `analyze-step`
+Analyze a specific service-region combination with specified tools.
+
+```bash
+aws-cost-analyzer analyze-step [options]
+```
+
+**Options:**
+- `-s, --service <service>`: AWS service name (required)
+- `-r, --region <region>`: AWS region (default: `us-east-1`)
+- `-c, --cost <cost>`: Service cost (default: `0`)
+- `-t, --tools <tools>`: Comma-separated list of tools to use (default: `awsGetCostAndUsage`)
+- `-o, --output <path>`: Output path for the markdown report (default: `./output/step-analysis.md`)
+
+**Examples:**
+```bash
+# Analyze Lambda in us-east-1
+aws-cost-analyzer analyze-step -s "AWS Lambda" -r "us-east-1"
+
+# Analyze S3 with specific cost and multiple tools
+aws-cost-analyzer analyze-step -s "Amazon S3" -r "us-west-2" -c "150.50" -t "awsGetCostAndUsage,awsCloudWatchGetMetrics"
+
+# Analyze EC2 with custom output
+aws-cost-analyzer analyze-step -s "Amazon EC2" -r "eu-west-1" -o "./reports/ec2-analysis.md"
+```
+
+#### `list-tools`
+List all available AWS tools that can be used with the analyze-step command.
+
+```bash
+aws-cost-analyzer list-tools
+```
+
+#### `generate-report`
+Generate comprehensive report from existing analysis files.
+
+```bash
+aws-cost-analyzer generate-report [options]
+```
+
+**Options:**
+- `-e, --execution-id <id>`: Execution ID to generate report for (required)
+- `-o, --output-dir <path>`: Output directory (default: `./output`)
+
+**Examples:**
+```bash
+# Generate report from existing analysis
+aws-cost-analyzer generate-report -e "01K1JNBJM58W2ZP9FEDH8SAM13"
+
+# Generate report with custom output directory
+aws-cost-analyzer generate-report -e "01K1JNBJM58W2ZP9FEDH8SAM13" -o "./reports"
+```
+
 #### `init`
 Create an example AWS credentials file.
 
@@ -127,32 +201,51 @@ aws-cost-analyzer validate [options]
 
 ## Analysis Flow
 
-The tool follows this analysis process:
+The tool supports multiple analysis workflows:
 
+### Full Analysis (`analyze`)
 1. **Credential Loading**: Loads AWS credentials from `.aws-creds.json`
 2. **Cost Data Retrieval**: Calls `awsCostAndUsage` tool to get service-region combinations
 3. **Cost Ranking**: Orders combinations by descending cost
-4. **AI Analysis**: For each combination:
+4. **AI Analysis**: For each top-N combination:
    - Executes LLM call with AWS tools and cost context
    - Generates cost analysis and optimization recommendations
    - Creates Vega-Lite chart specifications (if applicable)
-5. **Chart Generation**: Converts chart specs to PNG images
+5. **Chart Generation**: Converts chart specs to PNG/SVG images
 6. **Visual Analysis**: Sends chart images to LLM for additional insights
 7. **Report Generation**: Combines all analyses into comprehensive markdown report
+8. **Execution Tracking**: Generates unique execution ID for report organization
+
+### Step Analysis (`analyze-step`)
+1. **Direct Service Analysis**: Analyze specific service-region combination
+2. **Tool Selection**: Use specified AWS tools (e.g., `awsGetCostAndUsage`, `awsCloudWatchGetMetrics`)
+3. **Targeted AI Analysis**: Generate focused analysis for the specified service
+4. **Individual Report**: Create standalone report for the service-region combination
+
+### Report Generation (`generate-report`)
+1. **Existing Data Analysis**: Read previously generated analysis files by execution ID
+2. **Comprehensive Compilation**: Combine individual analyses into unified report
+3. **Cross-Service Insights**: Generate insights across all analyzed services
+4. **Final Report**: Produce executive summary and detailed analysis report
 
 ## Output Structure
 
 ```
 output/
-├── aws-cost-report.md          # Main detailed report
-├── aws-cost-report-summary.md  # Executive summary
-└── charts/
-    ├── png/
-    │   ├── service1-region1-0.png
-    │   └── service2-region2-1.png
-    └── svg/
-        ├── service1-region1-0.svg
-        └── service2-region2-1.svg
+├── <execution-id>/             # Unique execution folder (e.g., 01K1JNBJM58W2ZP9FEDH8SAM13)
+│   ├── report.md              # Comprehensive analysis report
+│   ├── summary.md             # Executive summary report
+│   ├── service1-region1.md    # Individual service analysis
+│   ├── service2-region2.md    # Individual service analysis
+│   └── charts/
+│       ├── png/
+│       │   ├── service1-region1-0.png
+│       │   └── service2-region2-1.png
+│       └── svg/
+│           ├── service1-region1-0.svg
+│           └── service2-region2-1.svg
+├── <execution-id>.html         # HTML version (after running eleventy)
+└── step-analysis.md           # Single step analysis (analyze-step command)
 ```
 
 ## Report Contents
@@ -194,6 +287,29 @@ Uses Amazon Bedrock with Claude 3.7 Sonnet model. The model is configured with:
 - `npm run clean`: Remove build artifacts
 - `npm run lint`: Run ESLint
 
+### HTML Report Generation
+
+The tool includes Eleventy integration for converting markdown reports to styled HTML:
+
+```bash
+npx @11ty/eleventy
+```
+
+This command:
+- Reads markdown reports from the `output/` directory
+- Applies CloudFix-branded styling via `eleventy/includes/base.njk` template
+- Converts `.md` files to `.html` with professional formatting
+- Generates styled HTML reports alongside existing markdown files
+
+**Features:**
+- Professional CloudFix branding and color scheme
+- Responsive design for mobile and desktop viewing
+- Optimized for printing and accessibility
+- Automatic link conversion from `.md` to `.html` references
+
+**Output:**
+HTML files are generated in the same directory structure as the markdown files, making it easy to share professional-looking reports via web browsers.
+
 ### Project Structure
 ```
 src/
@@ -203,10 +319,12 @@ src/
 ├── llm.ts             # LLM service for AI analysis
 ├── report-generator.ts # Markdown report generation
 ├── config.ts          # Configuration management
+├── tools.ts           # AWS tools integration and AI SDK compatibility
+├── chartUtils.ts      # Chart generation utilities (Vega-Lite)
 ├── types.ts           # TypeScript type definitions
-└── index.ts           # Main exports
-
-chartUtils.ts          # Chart generation utilities
+├── index.ts           # Main exports
+└── types/
+    └── aws-tools.d.ts  # Type definitions for AWS tools package
 ```
 
 ## Troubleshooting
@@ -228,6 +346,16 @@ chartUtils.ts          # Chart generation utilities
 4. **"LLM analysis failed"**
    - Verify AWS credentials have Bedrock permissions
    - Check if Claude 3.7 Sonnet model is available in your region
+
+5. **"Execution ID not found"**
+   - Ensure the execution ID exists in the output directory
+   - Check that the analysis completed successfully before generating reports
+   - Use `ls output/` to see available execution IDs
+
+6. **"No tools found"**
+   - Run `aws-cost-analyzer list-tools` to see available AWS tools
+   - Verify tool names are spelled correctly in analyze-step command
+   - Check internet connectivity for aws-tools package access
 
 ### Debug Mode
 Set environment variable for detailed logging:
